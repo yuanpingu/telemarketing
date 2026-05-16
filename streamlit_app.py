@@ -117,14 +117,14 @@ if y_first_value in ["yes", "no"]: #mapping target variable to 0 and 1
 df_model = pd.get_dummies(df_model, drop_first=True) #one-hot encoding categorical variables
 
 X = df_model.drop(target_col, axis=1)
-y = df_model[target_col]
+target = df_model[target_col]
 
-X_train, X_test, y_train, y_test = train_test_split(
+X_train, X_test, target_train, target_test = train_test_split(
     X,
-    y,
+    target,
     test_size=0.2,
     random_state=42,
-    stratify=y
+    stratify=target
 )
 
 scalar = StandardScaler()#standardizing numerical variables
@@ -147,7 +147,7 @@ log_cv = GridSearchCV(
     scoring=cv_scoring, 
     cv=5, 
     n_jobs=-1)
-log_cv.fit(X_train, y_train)
+log_cv.fit(X_train, target_train)
 
 log_cv_results = pd.DataFrame(log_cv.cv_results_)
 
@@ -171,10 +171,10 @@ st.pyplot(fig)
 best_log = log_cv.best_estimator_
 y_pred_log = best_log.predict(X_test)
 
-log_accuracy = accuracy_score(y_test, y_pred_log)
-log_precision = precision_score(y_test, y_pred_log)
-log_recall = recall_score(y_test, y_pred_log)
-log_f1 = f1_score(y_test, y_pred_log)
+log_accuracy = accuracy_score(target_test, y_pred_log)
+log_precision = precision_score(target_test, y_pred_log)
+log_recall = recall_score(target_test, y_pred_log)
+log_f1 = f1_score(target_test, y_pred_log)
 
 st.subheader("Best parameters found using 5-fold cross-validation:")
 st.markdown(f""" 
@@ -216,7 +216,7 @@ knn_cv = GridSearchCV(
     scoring=cv_scoring, 
     cv=5, 
     n_jobs=-1)
-knn_cv.fit(X_train, y_train)
+knn_cv.fit(X_train, target_train)
 
 knn_cv_results = pd.DataFrame(knn_cv.cv_results_)
 
@@ -238,10 +238,10 @@ st.pyplot(fig)
 best_knn = knn_cv.best_estimator_
 y_pred_knn = best_knn.predict(X_test)
 
-knn_accuracy = accuracy_score(y_test, y_pred_knn)
-knn_precision = precision_score(y_test, y_pred_knn)
-knn_recall = recall_score(y_test, y_pred_knn)
-knn_f1 = f1_score(y_test, y_pred_knn)
+knn_accuracy = accuracy_score(target_test, y_pred_knn)
+knn_precision = precision_score(target_test, y_pred_knn)
+knn_recall = recall_score(target_test, y_pred_knn)
+knn_f1 = f1_score(target_test, y_pred_knn)
 
 st.subheader("Best parameters found using 5-fold cross-validation:")
 st.markdown(f""" 
@@ -285,7 +285,7 @@ rf_cv = GridSearchCV(
     scoring=cv_scoring, 
     cv=5, 
     n_jobs=-1)
-rf_cv.fit(X_train, y_train)
+rf_cv.fit(X_train, target_train)
 
 rf_cv_results = pd.DataFrame(rf_cv.cv_results_)
 
@@ -306,10 +306,11 @@ st.pyplot(fig)
 #Choosing the best rf model to use on test set
 best_rf = rf_cv.best_estimator_
 y_pred_rf = best_rf.predict(X_test)
-rf_accuracy = accuracy_score(y_test, y_pred_rf)
-rf_precision = precision_score(y_test, y_pred_rf)
-rf_recall = recall_score(y_test, y_pred_rf)
-rf_f1 = f1_score(y_test, y_pred_rf)
+
+rf_accuracy = accuracy_score(target_test, y_pred_rf)
+rf_precision = precision_score(target_test, y_pred_rf)
+rf_recall = recall_score(target_test, y_pred_rf)
+rf_f1 = f1_score(target_test, y_pred_rf)
 
 st.subheader("Best parameters found using 5-fold cross-validation:")
 st.markdown(f""" 
@@ -353,7 +354,7 @@ nn_cv = GridSearchCV(
     scoring=cv_scoring, 
     cv=5, 
     n_jobs=-1)
-nn_cv.fit(X_train, y_train)
+nn_cv.fit(X_train, target_train)
 
 nn_cv_results = pd.DataFrame(nn_cv.cv_results_)
 
@@ -380,10 +381,10 @@ st.pyplot(fig)
 best_nn = nn_cv.best_estimator_
 y_pred_nn = best_nn.predict(X_test)
 
-nn_accuracy = accuracy_score(y_test, y_pred_nn)
-nn_precision = precision_score(y_test, y_pred_nn)
-nn_recall = recall_score(y_test, y_pred_nn)
-nn_f1 = f1_score(y_test, y_pred_nn)
+nn_accuracy = accuracy_score(target_test, y_pred_nn)
+nn_precision = precision_score(target_test, y_pred_nn)
+nn_recall = recall_score(target_test, y_pred_nn)
+nn_f1 = f1_score(target_test, y_pred_nn)
 
 st.subheader("Best parameters found using 5-fold cross-validation:")
 st.markdown(f""" 
