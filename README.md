@@ -1,25 +1,41 @@
-# 📦 Streamlit App Starter Kit 
-```
-⬆️ (Replace above with your app's name)
-```
-
-Description of the app ...
+# Bank Telemarketing Prediction Dashboard
+This supervised machine learning classification project predicts whether a customer will subscribe to a term deposit using machine learning models with historical data.
 
 ## Demo App
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://telemarketing-znejqxnxp4g9vz92chpckw.streamlit.app/)
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://app-starter-kit.streamlit.app/)
+## Dataset
+This project was inspired by and developed using the Bank Marketing (2012) dataset from the UC Irvine Machine Learning Repository.
 
-## GitHub Codespaces
+Dataset DOI: https://doi.org/10.24432/C5K306.
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/streamlit/app-starter-kit?quickstart=1)
+## Features
+- EDA dashboard
+- Data cleaning
+- Hyperparameter tuning
+- 5-fold cross-validation
+- Model evaluation and comparison
 
-## Section Heading
+## Tools
+- Python
+- Streamlit
+- pandas
+- scikit-learn
 
-This is filler text, please replace this with text for this section.
+## Models used
+- Logistic Regression
+- K Nearest Neighbor
+- Random Forest
+- Neural Network
+
+## How to use the app
+1. Install required packages using 'pip install -r requirements.txt'
+2. Run the app using 'streamlit run streamlit_app.py'
+3. Upload 1 csv file containing historical data seperated by ";"
 
 ## Further Reading
-
-This is filler text, please replace this with a explanatory text about further relevant resources for this repo
-- Resource 1
-- Resource 2
-- Resource 3
+- [Python Documentation](https://docs.python.org/3/)
+- [Pandas Documentation](https://pandas.pydata.org/docs/)
+- [Streamlit Documentation](https://docs.streamlit.io/)
+- [scikit-learn Documentation](https://scikit-learn.org/stable/)
+- [GridSearchCV Documentation](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html)
