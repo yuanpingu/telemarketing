@@ -55,7 +55,7 @@ st.space(40)
 #EDA on variables
 st.header("Exploratory Data Analysis on variables", divider=True,text_alignment="center")
 st.subheader("Target variable distribution")
-target_col = st.selectbox("Please select the target variable in the dataset", df.columns)
+target_col = "y"
 fig, ax = plt.subplots()
 df[target_col].value_counts().plot(kind="bar", ax=ax)
 ax.set_xlabel("Subscribed to Term Deposit")
