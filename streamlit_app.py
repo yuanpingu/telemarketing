@@ -88,7 +88,7 @@ else:
 st.subheader("Variable visualisation")
 
 numerical_col = df.select_dtypes(include=["int64", "float64"]).columns.to_list()
-categorical_col = df.select_dtypes(include="object").columns.to_list()
+categorical_col = df.select_dtypes(include=["object", "string"]).columns.to_list()
 
 plot_type = st.selectbox("Choose variable type", ["Categorical Bar Chart", "Numerical Boxplot"])
 
