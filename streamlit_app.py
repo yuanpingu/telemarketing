@@ -146,7 +146,7 @@ log_cv = GridSearchCV(
     param_grid=param_log, 
     scoring=cv_scoring, 
     cv=5, 
-    n_jobs=-1)
+    n_jobs=1)
 log_cv.fit(X_train, target_train)
 
 log_cv_results = pd.DataFrame(log_cv.cv_results_)
@@ -215,7 +215,7 @@ knn_cv = GridSearchCV(
     param_grid=param_knn, 
     scoring=cv_scoring, 
     cv=5, 
-    n_jobs=-1)
+    n_jobs=1)
 knn_cv.fit(X_train, target_train)
 
 knn_cv_results = pd.DataFrame(knn_cv.cv_results_)
@@ -278,13 +278,13 @@ st.space(40)
 st.header("Random Forest Model", divider=True, text_alignment="center")
 rf_model = RandomForestClassifier(random_state=42, class_weight="balanced")
 
-param_rf = {"n_estimators": [100, 200, 300, 400, 500]} #cross validation to find the best parameters for estimators
+param_rf = {"n_estimators": [50, 100, 200]} #cross validation to find the best parameters for estimators
 rf_cv = GridSearchCV(
     estimator=rf_model, 
     param_grid=param_rf, 
     scoring=cv_scoring, 
     cv=5, 
-    n_jobs=-1)
+    n_jobs=1)
 rf_cv.fit(X_train, target_train)
 
 rf_cv_results = pd.DataFrame(rf_cv.cv_results_)
@@ -353,7 +353,7 @@ nn_cv = GridSearchCV(
     param_grid=param_nn, 
     scoring=cv_scoring, 
     cv=5, 
-    n_jobs=-1)
+    n_jobs=1)
 nn_cv.fit(X_train, target_train)
 
 nn_cv_results = pd.DataFrame(nn_cv.cv_results_)
