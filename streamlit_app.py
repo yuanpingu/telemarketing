@@ -129,7 +129,7 @@ X_train, X_test, target_train, target_test = train_test_split(
 
 scalar = StandardScaler()#standardizing numerical variables
 X_train[numerical_col] = scalar.fit_transform(X_train[numerical_col])
-X_test[numerical_col] = scalar.fit_transform(X_test[numerical_col])
+X_test[numerical_col] = scalar.transform(X_test[numerical_col])
 
 st.space(40)
 
