@@ -2,7 +2,7 @@
 This supervised machine learning classification project predicts whether a customer will subscribe to a term deposit using machine learning models with historical data.
 
 ## Demo App
-[![Open in Streamlit](https://img.shields.io/badge/Open%20in-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://telemarketing-znejqxnxp4g9vz92chpckw.streamlit.app/)
+[![Open in Streamlit](https://img.shields.io/badge/Open%20in-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://telemarketing-v2oaebvxubshmrfh5u33xf.streamlit.app/)
 
 ## Dataset
 This project was inspired by and developed using the Bank Marketing (2012) dataset from the UC Irvine Machine Learning Repository.
