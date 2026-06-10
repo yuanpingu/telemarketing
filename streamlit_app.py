@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
+
 st.title("Bank Marketing Data Analytics Dashboard", text_alignment="center")
 
 st.write("This app aims to predict a customer subscribing to a long term deposit using historical data")
@@ -41,12 +42,12 @@ st.write(df.columns.tolist())
 st.subheader("Missing Values")
 st.write(df.isnull().sum())
 st.write("Rows with missing values will be :red[removed!]")
-df.dropna()
+df = df.dropna()
 
 st.subheader("Duplicated Rows")
 st.write(df.duplicated().sum())
 st.write("Duplicated rows will be :red[removed!]")
-df.drop_duplicates()
+df = df.drop_duplicates()
 
 st.space(40)
 
@@ -87,8 +88,14 @@ else:
 #Visualizing each variable
 st.subheader("Variable visualisation")
 
+df = df.drop("duration", axis = 1)
+st.warning("Duration column is dropped to prevent data leakage!")
+
 numerical_col = df.select_dtypes(include=["int64", "float64"]).columns.to_list()
 categorical_col = df.select_dtypes(include=["object", "string"]).columns.to_list()
+
+if "day" in numerical_col:
+    numerical_col.remove("day")
 
 plot_type = st.selectbox("Choose variable type", ["Categorical Bar Chart", "Numerical Boxplot"])
 
@@ -108,342 +115,443 @@ elif plot_type == "Numerical Boxplot":
 
 
 #Data cleaning and splitting
-df_model = df.copy()
+@st.cache_resource
+def train_models(df, target_col, main_metric, cv_scoring, numerical_col):
 
-y_first_value = str(df_model[target_col].iloc[0]).lower()
-if y_first_value in ["yes", "no"]: #mapping target variable to 0 and 1 
-    df_model[target_col] = (df_model[target_col].astype(str).str.lower().map({"no": 0, "yes": 1}))
+    df_model = df.copy()
 
-df_model = pd.get_dummies(df_model, drop_first=True) #one-hot encoding categorical variables
+    df_model["day"] = df_model["day"].astype(str)
 
-X = df_model.drop(target_col, axis=1)
-target = df_model[target_col]
+    y_first_value = str(df_model[target_col].iloc[0]).lower()
+    if y_first_value in ["yes", "no"]: #mapping target variable to 0 and 1 
+        df_model[target_col] = (df_model[target_col].astype(str).str.lower().map({"no": 0, "yes": 1}))
 
-X_train, X_test, target_train, target_test = train_test_split(
-    X,
-    target,
-    test_size=0.2,
-    random_state=42,
-    stratify=target
+    df_model = pd.get_dummies(df_model, drop_first=True) #one-hot encoding categorical variables
+
+    X = df_model.drop(target_col, axis=1)
+    target = df_model[target_col]
+
+    X_train, X_test, target_train, target_test = train_test_split(
+        X,
+        target,
+        test_size=0.2,
+        random_state=42,
+        stratify=target
+    )
+
+    scalar = StandardScaler()#standardizing numerical variables
+    X_train[numerical_col] = scalar.fit_transform(X_train[numerical_col])
+    X_test[numerical_col] = scalar.transform(X_test[numerical_col])
+
+    st.space(40)
+
+
+
+
+    #Logistic Regression Model 
+    st.header("Logistic Regression Model", divider=True, text_alignment="center")
+    log_model = LogisticRegression(max_iter=300, class_weight="balanced")
+
+    param_log = {"C": [0.01, 0.1, 1, 10]} #cross validation to find the best parameters for C
+    log_cv = GridSearchCV(
+        estimator=log_model,
+        param_grid=param_log, 
+        scoring=cv_scoring, 
+        cv=5, 
+        n_jobs=1)
+    log_cv.fit(X_train, target_train)
+
+    log_cv_results = pd.DataFrame(log_cv.cv_results_)
+
+    log_cv_scores = log_cv_results[["param_C", "mean_test_score"]]
+
+    st.subheader("C Value vs Cross-Validation Score") #graph to visualize the trend
+    st.dataframe(log_cv_scores)
+
+    fig, ax = plt.subplots()
+
+    ax.plot(log_cv_scores["param_C"], log_cv_scores["mean_test_score"], marker="o")
+    ax.set_xlabel("C value")
+    ax.set_ylabel("Mean CV Score")
+    ax.set_title("Logistic Regression: C vs CV Score")
+    ax.set_xscale("log")
+
+    st.pyplot(fig)
+
+
+    #Choosing the best LR model to use on test set
+    best_log = log_cv.best_estimator_
+    y_pred_log = best_log.predict(X_test)
+
+    log_accuracy = accuracy_score(target_test, y_pred_log)
+    log_precision = precision_score(target_test, y_pred_log)
+    log_recall = recall_score(target_test, y_pred_log)
+    log_f1 = f1_score(target_test, y_pred_log)
+
+    st.subheader("Best parameters found using 5-fold cross-validation:")
+    st.markdown(f""" 
+            * C = `{log_cv.best_params_["C"]}` 
+            * Best CV score = `{(round(log_cv.best_score_, 4))}`
+                """)
+
+    st.subheader("Evaluation:")
+    left_col, right_col = st.columns(2)
+
+    with left_col:
+        st.write(f"Accuracy: {log_accuracy: .4f} = :green[{log_accuracy: .2%}]")
+        st.write(f"Precision: {log_precision: .4f} = :green[{log_precision: .2%}]")
+
+    with right_col: 
+        st.write(f"Recall: {log_recall: .4f} = :green[{log_recall: .2%}]")
+        st.write(f"F1-score: {log_f1: .4f} = :green[{log_f1: .2%}]")
+
+    if main_metric == "Accuracy":
+        selected_score = round(log_accuracy, 4)
+    else:
+        selected_score = round(log_f1, 4)
+
+    st.success(f"Logistic Regression {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
+
+    st.space(40)
+
+
+
+    #kNN Model
+    st.header("k Nearest Neighbors Model", divider=True, text_alignment="center")
+    knn_model = KNeighborsClassifier()
+
+
+    param_knn = {"n_neighbors": [3, 5, 7, 9, 11]} #cross validation to find the best parameters for k
+    knn_cv = GridSearchCV(
+        estimator=knn_model, 
+        param_grid=param_knn, 
+        scoring=cv_scoring, 
+        cv=5, 
+        n_jobs=1)
+    knn_cv.fit(X_train, target_train)
+
+    knn_cv_results = pd.DataFrame(knn_cv.cv_results_)
+
+    knn_cv_scores = knn_cv_results[["param_n_neighbors", "mean_test_score"]]
+
+    st.subheader("k Value vs Cross-Validation Score") #graph to visualize the trend
+    st.dataframe(knn_cv_scores)
+
+    fig, ax = plt.subplots()
+
+    ax.plot(knn_cv_scores["param_n_neighbors"], knn_cv_scores["mean_test_score"], marker="o")
+    ax.set_xlabel("k value")
+    ax.set_ylabel("Mean CV Score")
+    ax.set_title("kNN: k vs CV Score")
+
+    st.pyplot(fig)
+
+    #Choosing the best knn model to use on test set
+    best_knn = knn_cv.best_estimator_
+    y_pred_knn = best_knn.predict(X_test)
+
+    knn_accuracy = accuracy_score(target_test, y_pred_knn)
+    knn_precision = precision_score(target_test, y_pred_knn)
+    knn_recall = recall_score(target_test, y_pred_knn)
+    knn_f1 = f1_score(target_test, y_pred_knn)
+
+    st.subheader("Best parameters found using 5-fold cross-validation:")
+    st.markdown(f""" 
+            * k = `{knn_cv.best_params_["n_neighbors"]}` 
+            * Best CV score = `{(round(knn_cv.best_score_, 4))}`
+                """)
+    st.info("Too small of a k value can lead to overfitting, hence the selected k value should be judged using test-set performance")
+
+    st.subheader("Evaluation:")
+    left_col, right_col = st.columns(2)
+
+    with left_col:
+        st.write(f"Accuracy: {knn_accuracy: .4f} = :green[{knn_accuracy: .2%}]")
+        st.write(f"Precision: {knn_precision: .4f} = :green[{knn_precision: .2%}]")
+
+    with right_col: 
+        st.write(f"Recall: {knn_recall: .4f} = :green[{knn_recall: .2%}]")
+        st.write(f"F1-score: {knn_f1: .4f} = :green[{knn_f1: .2%}]")
+
+
+    if main_metric == "Accuracy":
+        selected_score = round(knn_accuracy, 4)
+    else:
+        selected_score = round(knn_f1, 4)
+
+    st.success(f"k Nearest Neighbors {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
+
+    st.space(40)
+
+
+
+
+    #Random Forest Model
+    st.header("Random Forest Model", divider=True, text_alignment="center")
+    rf_model = RandomForestClassifier(random_state=42, class_weight="balanced")
+
+    param_rf = {"n_estimators": [50, 100, 200]} #cross validation to find the best parameters for estimators
+    rf_cv = GridSearchCV(
+        estimator=rf_model, 
+        param_grid=param_rf, 
+        scoring=cv_scoring, 
+        cv=5, 
+        n_jobs=1)
+    rf_cv.fit(X_train, target_train)
+
+    rf_cv_results = pd.DataFrame(rf_cv.cv_results_)
+
+    rf_cv_scores = rf_cv_results[["param_n_estimators", "mean_test_score"]]
+
+    st.subheader("Number of estimators vs Cross-Validation Score") #graph to visualize the trend
+    st.dataframe(rf_cv_scores)
+
+    fig, ax = plt.subplots()
+
+    ax.plot(rf_cv_scores["param_n_estimators"], rf_cv_scores["mean_test_score"], marker="o")
+    ax.set_xlabel("Number of estimators")
+    ax.set_ylabel("Mean CV Score")
+    ax.set_title("Random Forest: Number of estimators vs CV Score")
+
+    st.pyplot(fig)
+
+    #Choosing the best rf model to use on test set
+    best_rf = rf_cv.best_estimator_
+    y_pred_rf = best_rf.predict(X_test)
+
+    rf_accuracy = accuracy_score(target_test, y_pred_rf)
+    rf_precision = precision_score(target_test, y_pred_rf)
+    rf_recall = recall_score(target_test, y_pred_rf)
+    rf_f1 = f1_score(target_test, y_pred_rf)
+
+    st.subheader("Best parameters found using 5-fold cross-validation:")
+    st.markdown(f""" 
+            * Number of estimators = `{rf_cv.best_params_["n_estimators"]}` 
+            * Best CV score = `{(round(rf_cv.best_score_, 4))}`
+                """)
+
+    st.subheader("Evaluation:")
+    left_col, right_col = st.columns(2)
+
+    with left_col:
+        st.write(f"Accuracy: {rf_accuracy: .4f} = :green[{rf_accuracy: .2%}]")
+        st.write(f"Precision: {rf_precision: .4f} = :green[{rf_precision: .2%}]")
+
+    with right_col: 
+        st.write(f"Recall: {rf_recall: .4f} = :green[{rf_recall: .2%}]")
+        st.write(f"F1-score: {rf_f1: .4f} = :green[{rf_f1: .2%}]")
+
+    if main_metric == "Accuracy":
+        selected_score = round(rf_accuracy, 4)
+    else:
+        selected_score = round(rf_f1, 4)
+
+    st.success(f"Random Forest Model {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
+
+    st.space(40)
+
+
+
+
+    #Neural Network Model
+
+    st.header("Neural Network Model", divider=True, text_alignment="center")
+    nn_model = MLPClassifier(activation="relu", random_state=42, max_iter=1000, early_stopping=True)
+
+
+    param_nn = {"hidden_layer_sizes": [(64, 32), (64, 32, 16), (128, 64, 32), (128, 64, 32, 16)]} #cross validation to find the best parameters for hidden layers
+    nn_cv = GridSearchCV(
+        estimator=nn_model, 
+        param_grid=param_nn, 
+        scoring=cv_scoring, 
+        cv=5, 
+        n_jobs=1)
+    nn_cv.fit(X_train, target_train)
+
+    nn_cv_results = pd.DataFrame(nn_cv.cv_results_)
+
+    nn_cv_scores = nn_cv_results[["param_hidden_layer_sizes", "mean_test_score"]]
+
+    st.subheader("Sizes of hidden layers vs Cross-Validation Score")
+    st.dataframe(nn_cv_scores)
+
+    fig, ax = plt.subplots()
+
+    ax.bar(
+        nn_cv_scores["param_hidden_layer_sizes"].astype(str),
+        nn_cv_scores["mean_test_score"]
+    )
+
+    ax.set_xlabel("Hidden layer sizes")
+    ax.set_ylabel("Mean CV Score")
+    ax.set_title("Neural Network: Size of hidden layers vs CV Score")
+    ax.tick_params(axis="x", rotation=45)
+
+    st.pyplot(fig)
+
+    #Choosing the best nn model to use on test set
+    best_nn = nn_cv.best_estimator_
+    y_pred_nn = best_nn.predict(X_test)
+
+    nn_accuracy = accuracy_score(target_test, y_pred_nn)
+    nn_precision = precision_score(target_test, y_pred_nn)
+    nn_recall = recall_score(target_test, y_pred_nn)
+    nn_f1 = f1_score(target_test, y_pred_nn)
+
+    st.subheader("Best parameters found using 5-fold cross-validation:")
+    st.markdown(f""" 
+            * Size of hidden layers = `{nn_cv.best_params_["hidden_layer_sizes"]}` 
+            * Best CV score = `{(round(nn_cv.best_score_, 4))}`
+                """)
+
+    st.subheader("Evaluation:")
+    left_col, right_col = st.columns(2)
+
+    with left_col:
+        st.write(f"Accuracy: {nn_accuracy: .4f} = :green[{nn_accuracy: .2%}]")
+        st.write(f"Precision: {nn_precision: .4f} = :green[{nn_precision: .2%}]")
+
+    with right_col: 
+        st.write(f"Recall: {nn_recall: .4f} = :green[{nn_recall: .2%}]")
+        st.write(f"F1-score: {nn_f1: .4f} = :green[{nn_f1: .2%}]")
+
+    if main_metric == "Accuracy":
+        selected_score = round(nn_accuracy, 4)
+    else:
+        selected_score = round(nn_f1, 4)
+
+    st.success(f"Neural Network Model {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
+
+    st.space(40)
+
+
+
+
+    #Summary
+    st.header("Final results", divider=True, text_alignment="center")
+
+    if main_metric == "Accuracy":
+        metric = "Accuracy"
+        res_df = pd.DataFrame({'Model': ['Logistic Regression', 'kNN', 'Random Forest', 'Neural Network'], 
+                        'Accuracy': [log_accuracy, knn_accuracy, rf_accuracy, nn_accuracy]})
+    else:
+        metric = "F1"
+        res_df = pd.DataFrame({'Model': ['Logistic Regression', 'kNN', 'Random Forest', 'Neural Network'], 
+                        'F1': [log_f1, knn_f1, rf_f1, nn_f1]})
+    st.table(res_df)
+
+    best_row = res_df.loc[res_df[metric].idxmax()]
+    best_model_name = best_row["Model"]
+
+    best_params = {
+        "Logistic Regression": log_cv.best_params_,
+        "kNN": knn_cv.best_params_,
+        "Random Forest": rf_cv.best_params_,
+        "Neural Network": nn_cv.best_params_
+    }
+
+    params = best_params[best_model_name]
+
+    best_models = {
+        "Logistic Regression": log_cv.best_estimator_,
+        "kNN": knn_cv.best_estimator_,
+        "Random Forest": rf_cv.best_estimator_,
+        "Neural Network": nn_cv.best_estimator_
+    }
+
+    params_text = ", ".join(
+        [f"{key} = {value}" for key, value in params.items()]
+    )
+    return best_models, best_model_name, scalar, numerical_col, X_train, res_df, best_row, params_text, metric
+
+best_models, best_model_name, scalar, numerical_col, X_train, res_df, best_row, params_text, metric = train_models(
+    df,
+    target_col,
+    main_metric,
+    cv_scoring,
+    numerical_col
 )
 
-scalar = StandardScaler()#standardizing numerical variables
-X_train[numerical_col] = scalar.fit_transform(X_train[numerical_col])
-X_test[numerical_col] = scalar.transform(X_test[numerical_col])
-
-st.space(40)
-
-
-
-
-#Logistic Regression Model 
-st.header("Logistic Regression Model", divider=True, text_alignment="center")
-log_model = LogisticRegression(max_iter=300)
-
-param_log = {"C": [0.01, 0.1, 1, 10]} #cross validation to find the best parameters for C
-log_cv = GridSearchCV(
-    estimator=log_model,
-    param_grid=param_log, 
-    scoring=cv_scoring, 
-    cv=5, 
-    n_jobs=1)
-log_cv.fit(X_train, target_train)
-
-log_cv_results = pd.DataFrame(log_cv.cv_results_)
-
-log_cv_scores = log_cv_results[["param_C", "mean_test_score"]]
-
-st.subheader("C Value vs Cross-Validation Score") #graph to visualize the trend
-st.dataframe(log_cv_scores)
-
-fig, ax = plt.subplots()
-
-ax.plot(log_cv_scores["param_C"], log_cv_scores["mean_test_score"], marker="o")
-ax.set_xlabel("C value")
-ax.set_ylabel("Mean CV Score")
-ax.set_title("Logistic Regression: C vs CV Score")
-ax.set_xscale("log")
-
-st.pyplot(fig)
-
-
-#Choosing the best LR model to use on test set
-best_log = log_cv.best_estimator_
-y_pred_log = best_log.predict(X_test)
-
-log_accuracy = accuracy_score(target_test, y_pred_log)
-log_precision = precision_score(target_test, y_pred_log)
-log_recall = recall_score(target_test, y_pred_log)
-log_f1 = f1_score(target_test, y_pred_log)
-
-st.subheader("Best parameters found using 5-fold cross-validation:")
-st.markdown(f""" 
-        * C = `{log_cv.best_params_["C"]}` 
-        * Best CV score = `{(round(log_cv.best_score_, 4))}`
-            """)
-
-st.subheader("Evaluation:")
-left_col, right_col = st.columns(2)
-
-with left_col:
-    st.write(f"Accuracy: {log_accuracy: .4f} = :green[{log_accuracy: .2%}]")
-    st.write(f"Precision: {log_precision: .4f} = :green[{log_precision: .2%}]")
-
-with right_col: 
-    st.write(f"Recall: {log_recall: .4f} = :green[{log_recall: .2%}]")
-    st.write(f"F1-score: {log_f1: .4f} = :green[{log_f1: .2%}]")
-
-if main_metric == "Accuracy":
-    selected_score = round(log_accuracy, 4)
-else:
-    selected_score = round(log_f1, 4)
-
-st.success(f"Logistic Regression {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
-
-st.space(40)
-
-
-
-#kNN Model
-st.header("k Nearest Neighbors Model", divider=True, text_alignment="center")
-knn_model = KNeighborsClassifier()
-
-
-param_knn = {"n_neighbors": [3, 5, 7, 9, 11]} #cross validation to find the best parameters for k
-knn_cv = GridSearchCV(
-    estimator=knn_model, 
-    param_grid=param_knn, 
-    scoring=cv_scoring, 
-    cv=5, 
-    n_jobs=1)
-knn_cv.fit(X_train, target_train)
-
-knn_cv_results = pd.DataFrame(knn_cv.cv_results_)
-
-knn_cv_scores = knn_cv_results[["param_n_neighbors", "mean_test_score"]]
-
-st.subheader("k Value vs Cross-Validation Score") #graph to visualize the trend
-st.dataframe(knn_cv_scores)
-
-fig, ax = plt.subplots()
-
-ax.plot(knn_cv_scores["param_n_neighbors"], knn_cv_scores["mean_test_score"], marker="o")
-ax.set_xlabel("k value")
-ax.set_ylabel("Mean CV Score")
-ax.set_title("kNN: k vs CV Score")
-
-st.pyplot(fig)
-
-#Choosing the best knn model to use on test set
-best_knn = knn_cv.best_estimator_
-y_pred_knn = best_knn.predict(X_test)
-
-knn_accuracy = accuracy_score(target_test, y_pred_knn)
-knn_precision = precision_score(target_test, y_pred_knn)
-knn_recall = recall_score(target_test, y_pred_knn)
-knn_f1 = f1_score(target_test, y_pred_knn)
-
-st.subheader("Best parameters found using 5-fold cross-validation:")
-st.markdown(f""" 
-        * k = `{knn_cv.best_params_["n_neighbors"]}` 
-        * Best CV score = `{(round(knn_cv.best_score_, 4))}`
-            """)
-st.info("Too small of a k value can lead to overfitting, hence the selected k value should be judged using test-set performance")
-
-st.subheader("Evaluation:")
-left_col, right_col = st.columns(2)
-
-with left_col:
-    st.write(f"Accuracy: {knn_accuracy: .4f} = :green[{knn_accuracy: .2%}]")
-    st.write(f"Precision: {knn_precision: .4f} = :green[{knn_precision: .2%}]")
-
-with right_col: 
-    st.write(f"Recall: {knn_recall: .4f} = :green[{knn_recall: .2%}]")
-    st.write(f"F1-score: {knn_f1: .4f} = :green[{knn_f1: .2%}]")
-
-
-if main_metric == "Accuracy":
-    selected_score = round(knn_accuracy, 4)
-else:
-    selected_score = round(knn_f1, 4)
-
-st.success(f"k Nearest Neighbors {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
-
-st.space(40)
-
-
-
-
-#Random Forest Model
-st.header("Random Forest Model", divider=True, text_alignment="center")
-rf_model = RandomForestClassifier(random_state=42, class_weight="balanced")
-
-param_rf = {"n_estimators": [50, 100, 200]} #cross validation to find the best parameters for estimators
-rf_cv = GridSearchCV(
-    estimator=rf_model, 
-    param_grid=param_rf, 
-    scoring=cv_scoring, 
-    cv=5, 
-    n_jobs=1)
-rf_cv.fit(X_train, target_train)
-
-rf_cv_results = pd.DataFrame(rf_cv.cv_results_)
-
-rf_cv_scores = rf_cv_results[["param_n_estimators", "mean_test_score"]]
-
-st.subheader("Number of estimators vs Cross-Validation Score") #graph to visualize the trend
-st.dataframe(rf_cv_scores)
-
-fig, ax = plt.subplots()
-
-ax.plot(rf_cv_scores["param_n_estimators"], rf_cv_scores["mean_test_score"], marker="o")
-ax.set_xlabel("Number of estimators")
-ax.set_ylabel("Mean CV Score")
-ax.set_title("Random Forest: Number of estimators vs CV Score")
-
-st.pyplot(fig)
-
-#Choosing the best rf model to use on test set
-best_rf = rf_cv.best_estimator_
-y_pred_rf = best_rf.predict(X_test)
-
-rf_accuracy = accuracy_score(target_test, y_pred_rf)
-rf_precision = precision_score(target_test, y_pred_rf)
-rf_recall = recall_score(target_test, y_pred_rf)
-rf_f1 = f1_score(target_test, y_pred_rf)
-
-st.subheader("Best parameters found using 5-fold cross-validation:")
-st.markdown(f""" 
-        * Number of estimators = `{rf_cv.best_params_["n_estimators"]}` 
-        * Best CV score = `{(round(rf_cv.best_score_, 4))}`
-            """)
-
-st.subheader("Evaluation:")
-left_col, right_col = st.columns(2)
-
-with left_col:
-    st.write(f"Accuracy: {rf_accuracy: .4f} = :green[{rf_accuracy: .2%}]")
-    st.write(f"Precision: {rf_precision: .4f} = :green[{rf_precision: .2%}]")
-
-with right_col: 
-    st.write(f"Recall: {rf_recall: .4f} = :green[{rf_recall: .2%}]")
-    st.write(f"F1-score: {rf_f1: .4f} = :green[{rf_f1: .2%}]")
-
-if main_metric == "Accuracy":
-    selected_score = round(rf_accuracy, 4)
-else:
-    selected_score = round(rf_f1, 4)
-
-st.success(f"Random Forest Model {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
-
-st.space(40)
-
-
-
-
-#Neural Network Model
-
-st.header("Neural Network Model", divider=True, text_alignment="center")
-nn_model = MLPClassifier(activation="relu", random_state=42, max_iter=1000, early_stopping=True)
-
-
-param_nn = {"hidden_layer_sizes": [(64, 32), (64, 32, 16), (128, 64, 32), (128, 64, 32, 16)]} #cross validation to find the best parameters for hidden layers
-nn_cv = GridSearchCV(
-    estimator=nn_model, 
-    param_grid=param_nn, 
-    scoring=cv_scoring, 
-    cv=5, 
-    n_jobs=1)
-nn_cv.fit(X_train, target_train)
-
-nn_cv_results = pd.DataFrame(nn_cv.cv_results_)
-
-nn_cv_scores = nn_cv_results[["param_hidden_layer_sizes", "mean_test_score"]]
-
-st.subheader("Sizes of hidden layers vs Cross-Validation Score")
-st.dataframe(nn_cv_scores)
-
-fig, ax = plt.subplots()
-
-ax.bar(
-    nn_cv_scores["param_hidden_layer_sizes"].astype(str),
-    nn_cv_scores["mean_test_score"]
-)
-
-ax.set_xlabel("Hidden layer sizes")
-ax.set_ylabel("Mean CV Score")
-ax.set_title("Neural Network: Size of hidden layers vs CV Score")
-ax.tick_params(axis="x", rotation=45)
-
-st.pyplot(fig)
-
-#Choosing the best nn model to use on test set
-best_nn = nn_cv.best_estimator_
-y_pred_nn = best_nn.predict(X_test)
-
-nn_accuracy = accuracy_score(target_test, y_pred_nn)
-nn_precision = precision_score(target_test, y_pred_nn)
-nn_recall = recall_score(target_test, y_pred_nn)
-nn_f1 = f1_score(target_test, y_pred_nn)
-
-st.subheader("Best parameters found using 5-fold cross-validation:")
-st.markdown(f""" 
-        * Size of hidden layers = `{nn_cv.best_params_["hidden_layer_sizes"]}` 
-        * Best CV score = `{(round(nn_cv.best_score_, 4))}`
-            """)
-
-st.subheader("Evaluation:")
-left_col, right_col = st.columns(2)
-
-with left_col:
-    st.write(f"Accuracy: {nn_accuracy: .4f} = :green[{nn_accuracy: .2%}]")
-    st.write(f"Precision: {nn_precision: .4f} = :green[{nn_precision: .2%}]")
-
-with right_col: 
-    st.write(f"Recall: {nn_recall: .4f} = :green[{nn_recall: .2%}]")
-    st.write(f"F1-score: {nn_f1: .4f} = :green[{nn_f1: .2%}]")
-
-if main_metric == "Accuracy":
-    selected_score = round(nn_accuracy, 4)
-else:
-    selected_score = round(nn_f1, 4)
-
-st.success(f"Neural Network Model {main_metric}: {selected_score} = **{selected_score * 100:.2f}%**")
-
-st.space(40)
-
-
-
-
-#Summary
-st.header("Final results", divider=True, text_alignment="center")
-
-if main_metric == "Accuracy":
-    metric = "Accuracy"
-    res_df = pd.DataFrame({'Model': ['Logistic Regression', 'kNN', 'Random Forest', 'Neural Network'], 
-                       'Accuracy': [log_accuracy, knn_accuracy, rf_accuracy, nn_accuracy]})
-else:
-    metric = "F1"
-    res_df = pd.DataFrame({'Model': ['Logistic Regression', 'kNN', 'Random Forest', 'Neural Network'], 
-                       'F1': [log_f1, knn_f1, rf_f1, nn_f1]})
-st.table(res_df)
-
-best_row = res_df.loc[res_df[metric].idxmax()]
-best_model_name = best_row["Model"]
-
-best_params = {
-    "Logistic Regression": log_cv.best_params_,
-    "kNN": knn_cv.best_params_,
-    "Random Forest": rf_cv.best_params_,
-    "Neural Network": nn_cv.best_params_
-}
-
-params = best_params[best_model_name]
-
-params_text = ", ".join(
-    [f"{key} = {value}" for key, value in params.items()]
-)
 
 
 st.success(f"The best model based on **{main_metric}** is **{best_row['Model']}** "
            f"with {params_text}, getting a score of **{best_row[metric]:.4f}**.")
+
+st.space(40)
+
+
+#Prediction
+st.header("Prediction", divider=True, text_alignment="center")
+st.write("Please input customer data to predict whether they will subscribe to a long term deposit using " 
+        "the best performing model.")
+
+model = best_models[best_model_name]
+
+with st.form("prediction form"):
+    new_age = st.number_input("Age", min_value=18, max_value=100, value=35)
+    new_job = st.selectbox("Job", sorted(df["job"].dropna().unique()))
+    new_marital = st.selectbox("Marital status", sorted(df["marital"].dropna().unique()))
+    new_education = st.selectbox("Education level", sorted(df["education"].dropna().unique()))
+    new_default = st.selectbox("Has credit in default?", sorted(df["default"].dropna().unique()))
+    new_balance = st.number_input("Average yearly balance?", value = 0)
+    new_housing = st.selectbox("Has housing loan?", sorted(df["housing"].dropna().unique()))
+    new_loan = st.selectbox("Has personal loan?", sorted(df["loan"].dropna().unique()))
+    new_contact = st.selectbox("Contact communication type", sorted(df["contact"].dropna().unique()))
+    new_day = st.number_input("Last Contact Day of the month", min_value=1, max_value=31, value=15)
+    new_month = st.selectbox("Last Contact Month", sorted(df["month"].dropna().unique()))
+    new_campaign = st.number_input("Number Of Contacts Performed During This Campign", min_value=1, value=1)
+    new_pdays = st.number_input("Days Since Client Was Last Contacted", min_value=-1, value=-1)
+    new_previous = st.number_input("Number Of Contacts Before This Campaign", min_value=0, value=0)
+    new_poutcome = st.selectbox("Outcome Of Previous Marketing Campaign", sorted(df["poutcome"].dropna().unique()))
+    submitted = st.form_submit_button("Predict Subscription", type="primary")
+
+
+if submitted:
+    new_customer = pd.DataFrame({
+        "age": [new_age],
+        "job": [new_job],
+        "marital": [new_marital],
+        "education": [new_education],
+        "default": [new_default],
+        "balance": [new_balance],
+        "housing": [new_housing],
+        "loan": [new_loan],
+        "contact": [new_contact],
+        "day": [new_day],
+        "month": [new_month],
+        "campaign": [new_campaign],
+        "pdays": [new_pdays],
+        "previous": [new_previous],
+        "poutcome": [new_poutcome]
+    })
+
+    new_customer["day"] = new_customer["day"].astype(str)
+
+    st.subheader("New Customer Data")
+    st.dataframe(new_customer)
+
+    new_customer_encoded = pd.get_dummies(new_customer, drop_first=False)
+
+
+    new_customer_encoded = new_customer_encoded.reindex( # ensures prediction data has the exact same columns as X_train
+        columns=X_train.columns,
+        fill_value=0
+    )
+
+    new_customer_encoded[numerical_col] = scalar.transform( # scale numerical columns
+        new_customer_encoded[numerical_col]
+    )
+
+
+    prediction = model.predict(new_customer_encoded)
+
+    if prediction[0] == 1:
+        st.success("Prediction: The customer is likely to subscribe.")
+
+    else:
+        st.error("Prediction: The customer is not likely to subscribe.")
+
+    if hasattr(model, "predict_proba"):
+        probability = model.predict_proba(new_customer_encoded)
+        st.write(f"Probability of not subscribing: {probability[0][0]:.2%}")
+        st.write(f"Probability of subscribing: {probability[0][1]:.2%}")
