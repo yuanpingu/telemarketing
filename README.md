@@ -9,6 +9,25 @@ This project was inspired by and developed using the Bank Marketing (2012) datas
 
 Dataset DOI: https://doi.org/10.24432/C5K306.
 
+## Variables
+- Age (Numerical)
+- Job (Categorical)
+- Marital (Categorical) - Marital status
+- Education (Categorical) - Education level
+- Default (Categorical) - Has credit in default?
+- Balance (Categorical) - Average yearly balance
+- Housing (Categorical) - Has housing loan?
+- Loan (Categorical) - Has personal loan?
+- Contact (Categorical) - Contact communication type
+- Day of week (Categorical) - Last contact day of the month
+- Month (Categorical) - Last contact month
+- Duration (Numerical) - Last contact duration in seconds
+- Campaign (Numerical) - Number of contacts performed during this campaign
+- Pdays (Numerical) - Number of days since the last contact from porevious campaign
+- Previous (Numerical) - Number of contacts performed before this campaign
+- Poutcome (Categorical) - Outcome of the previous marketing campaign
+- Y (Categorical) - Has the client subscribed to a term deposit?
+
 ## Features
 - EDA dashboard
 - Data cleaning
