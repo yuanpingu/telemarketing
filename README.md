@@ -10,8 +10,8 @@ This project was inspired by and developed using the Bank Marketing (2012) datas
 Dataset DOI: https://doi.org/10.24432/C5K306.
 
 ## Variables
-- Age (Numerical)
-- Job (Categorical)
+- Age (Numerical) - Client's age
+- Job (Categorical) - Type of job
 - Marital (Categorical) - Marital status
 - Education (Categorical) - Education level
 - Default (Categorical) - Has credit in default?
