@@ -7,7 +7,7 @@ This supervised machine learning classification project predicts whether a custo
 ## Dataset
 This project was inspired by and developed using the Bank Marketing (2012) dataset from the UC Irvine Machine Learning Repository.
 
-Dataset DOI: https://doi.org/10.24432/C5K306.
+Dataset citation: Moro, S., Rita, P., & Cortez, P. (2014). Bank Marketing [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5K306.
 
 ## Variables
 - Age (Numerical) - Client's age
